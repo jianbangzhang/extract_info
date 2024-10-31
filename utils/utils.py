@@ -224,6 +224,64 @@ def unzip_decode(zip_path, extract_path):
             zip_ref.extract(file_info, extract_path)
         print(f"文件已成功解压到 {extract_path}")
 
+    lst = [file for file in os.listdir(extract_path) if not (file.startswith(".") or file.startswith("_"))]
+
+    for f in lst:
+        if f.startswith("__") or f.startswith("."):
+            continue
+        path = os.path.join(extract_path, f)
+        if os.path.isdir(path):
+            return path
+        elif os.path.isfile(path):
+            doc_name = os.path.splitext(f)[0]
+            new_dir = os.path.join(extract_path,doc_name)
+            new_file_path = os.path.join(new_dir,f)
+            copy_file(path,new_file_path)
+            os.remove(path)
+            return new_dir
+        else:
+            raise ValueError
+
+
+
+
+
+def unzip_decode1(zip_path, extract_path):
+    """
+    解压指定路径下的 ZIP 文件，自动检测文件名编码并尝试多种备选编码，避免乱码。
+
+    :param zip_path: ZIP 文件的路径
+    :param extract_path: 要解压到的目标文件夹路径
+    :return: 解压后的文件夹路径，或解压的主要文件路径
+    """
+    if not os.path.exists(extract_path):
+        os.makedirs(extract_path)
+
+    encodings = ['utf-8', 'latin1', 'gbk', 'shift_jis']
+
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        for file_info in zip_ref.infolist():
+            detected_encoding = chardet.detect(file_info.filename.encode('cp437'))['encoding']
+            if detected_encoding:
+                try:
+                    file_info.filename = file_info.filename.encode('cp437').decode(detected_encoding)
+                except UnicodeDecodeError:
+                    print(f"无法使用检测到的编码 {detected_encoding} 解码文件名：{file_info.filename}")
+
+            if not detected_encoding or 'UnicodeDecodeError' in locals():
+                for enc in encodings:
+                    try:
+                        file_info.filename = file_info.filename.encode('cp437').decode(enc)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                else:
+                    print(f"文件名解码失败，跳过文件：{file_info.filename}")
+                    continue
+
+            zip_ref.extract(file_info, extract_path)
+        print(f"文件已成功解压到 {extract_path}")
+
     # 获取解压文件夹中非隐藏文件的列表
     lst = [file for file in os.listdir(extract_path) if not (file.startswith(".") or file.startswith("_"))]
 
